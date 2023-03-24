@@ -38,6 +38,7 @@ class Agent:
 delta_time = 0.0
 clock = pygame.time.Clock()
 
+
 # changeable variables ( for customization )
 numOfAgents = 50
 numOfPredators = 1
@@ -46,20 +47,21 @@ screenSizeY = 600
 maxSpeed = 4
 predatorMaxSpeed = 3
 predatorFollowMouse = False
+backgroundAlpha = 50
 
-
+screen = pygame.display.set_mode((screenSizeX, screenSizeY))
 ArrayAgents = numpy.empty(numOfAgents, dtype=Agent)
-
-
 agentStartingAngle = random.random() * 180  # redundant
-
 direction = Vector(0, 0)
 
 pygame.mouse.set_visible(False)
+backgroundPic = pygame.transform.scale(pygame.image.load(
+    "background.png").convert_alpha(), (screenSizeX, screenSizeY))
+backgroundRect = backgroundPic.get_rect(
+    center=(screenSizeX / 2, screenSizeY / 2))
 
 
 # make agents
-
 for n in range(numOfAgents):
 
     ArrayAgents[n] = Agent(
@@ -77,29 +79,18 @@ for n in range(numOfAgents):
     )
 
 
-def setPredators():
-    totalPredators = 0
-    for n in ArrayAgents:
-        if (numOfPredators > 0):
-            n.predator = True
-            n.sight = n.sight*3
-            totalPredators += 1
-            if (totalPredators == numOfPredators):
-                break
-
-
-setPredators()
-
-screen = pygame.display.set_mode((screenSizeX, screenSizeY))
-
-trailFollow = Vector(0, 0)
+# set predators
+totalPredators = 0
+for n in ArrayAgents:
+    if (numOfPredators > 0):
+        n.predator = True
+        n.sight = n.sight*3
+        totalPredators += 1
+        if (totalPredators == numOfPredators):
+            break
 
 simRunning = True
 agentStart = True
-
-# else:
-#    agentX.position = Vector(
-#        random.random() * screenSizeX, random.random() * screenSizeY)
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -222,21 +213,6 @@ def avoidEdge(boid):
 
 
 def chaseAgents(boid):
-    # chaseFactor = 0.001
-    # moveX = 0
-    # moveY = 0
-    # numberOfPrey = 0
-    # for k in ArrayAgents:
-    #     distance = math.sqrt((boid.position.x - k.position.x)
-    #                          ** 2 + (boid.position.y - k.position.y)**2)
-    #     if not k.predator:
-    #         if distance < boid.sight:
-    #             moveX -= boid.position.x - k.position.x
-    #             moveY -= boid.position.y - k.position.y
-    #             numberOfPrey += 1
-    # if (numberOfPrey):
-    #     boid.dx += (moveX * chaseFactor) / numberOfPrey
-    #     boid.dy += (moveY * chaseFactor) / numberOfPrey
 
     chaseFactor = 0.004
 
@@ -278,7 +254,6 @@ def moveAgent(n: Agent):
             n.newPos = Vector(
                 n.position.x, screenSizeY - n.position.y)
 
-# if not out og bounds, set newPosition
         else:
             n.newPos = n.position + direction
 
@@ -291,7 +266,6 @@ def moveAgent(n: Agent):
 
 
 def AvoidBoids(n: Agent):
-    # nested for loop to compare each boid to one another and check if they are too close
     avoidFactor = 0.01
     moveX = 0
     moveY = 0
@@ -329,18 +303,22 @@ def update():
 
 
 def draw():
-    screen.fill((0, 0, 0))
+
+    backgroundPic.set_alpha(backgroundAlpha)
+
+    screen.blit(backgroundPic, backgroundRect)
+
     for n in ArrayAgents:
         if not n.predator:
-            pygame.draw.rect(
+            pygame.draw.ellipse(
                 screen,
                 (75 + n.randomColor, 75 + n.randomColor, 155 + n.randomColor),
-                pygame.Rect(n.position.x, n.position.y, n.size, n.size),)
+                pygame.Rect(n.position.x, n.position.y, n.size, n.size))
         if n.predator:
-            pygame.draw.rect(
+            pygame.draw.ellipse(
                 screen,
                 (155 + n.randomColor, n.randomColor, n.randomColor),
-                pygame.Rect(n.position.x, n.position.y, n.size, n.size),)
+                pygame.Rect(n.position.x, n.position.y, n.size, n.size))
 
 
 while simRunning:
@@ -351,6 +329,27 @@ while simRunning:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 simRunning = False
+            if event.key == pygame.K_1:
+                maxSpeed += 0.5
+            if event.key == pygame.K_2:
+                maxSpeed -= 0.5
+            if event.key == pygame.K_3:
+                predatorMaxSpeed += 0.5
+            if event.key == pygame.K_4:
+                predatorMaxSpeed -= 0.5
+            if event.key == pygame.K_f:
+                predatorFollowMouse = not predatorFollowMouse
+            if event.key == pygame.K_5:
+                if backgroundAlpha > 10:
+                    backgroundAlpha -= 10
+                else:
+                    backgroundAlpha = 0
+
+            if event.key == pygame.K_6:
+                if backgroundAlpha < 245:
+                    backgroundAlpha += 10
+                else:
+                    backgroundAlpha = 255
 
     update()
     draw()
@@ -361,4 +360,3 @@ while simRunning:
 
 
 pygame.quit()
-# quit()
