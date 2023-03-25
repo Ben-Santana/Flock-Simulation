@@ -20,14 +20,18 @@
    
           1. Download Zip File
           2. Extract Zip file contents
-          3. Run boid.exe
+          3. Open 'run' folder
+          3. Run boid.exe  --- if you remove 'background.png' or boid.exe from the run folder it will not function properly
           
           
           
-   To change settings (needs VSCode):
+   To change settings:
     
     
-          1. Download Zip File
-          2. Extract Zip file contents
-          3. Open boid.py with VSCode
-          4. Configure settings on line 41 - 48
+          . 1 - Increase speed
+          . 2 - Decrease speed
+          . 3 - Increase predator speed
+          . 4 - Decrease predator speed
+          . 5 - Increase tail size
+          . 6 - Decrease tail size
+          . F - Set predator to follow mouse
