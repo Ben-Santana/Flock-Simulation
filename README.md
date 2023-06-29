@@ -21,7 +21,8 @@
           1. Download Zip File
           2. Extract Zip file contents
           3. Open 'run' folder
-          3. Run boid.exe  --- if you remove 'background.png' or boid.exe from the run folder it will not function properly
+          3. Run boid.exe as administrator --- If you dont run as admin, your antivirus will most likely not let it run
+             **if you remove 'background.png' or boid.exe from the run folder it will not function properly
           
           
           
