@@ -40,33 +40,33 @@ clock = pygame.time.Clock()
 
 
 # changeable variables ( for customization )
-numOfAgents = 50
-numOfPredators = 1
-screenSizeX = 700
-screenSizeY = 600
-maxSpeed = 4
-predatorMaxSpeed = 3
-predatorFollowMouse = False
+num_agents = 50
+num_predators = 1
+screen_x = 1000
+screen_y = 600
+max_speed = 3
+predator_max_speed = 2
+follow_mouse = False
 backgroundAlpha = 50
 
-screen = pygame.display.set_mode((screenSizeX, screenSizeY))
-ArrayAgents = numpy.empty(numOfAgents, dtype=Agent)
+screen = pygame.display.set_mode((screen_x, screen_y))
+agent_array = numpy.empty(num_agents, dtype=Agent)
 agentStartingAngle = random.random() * 180  # redundant
 direction = Vector(0, 0)
 
 pygame.mouse.set_visible(False)
 backgroundPic = pygame.transform.scale(pygame.image.load(
-    "background.png").convert_alpha(), (screenSizeX, screenSizeY))
+    "background.png").convert_alpha(), (screen_x, screen_y))
 backgroundRect = backgroundPic.get_rect(
-    center=(screenSizeX / 2, screenSizeY / 2))
+    center=(screen_x / 2, screen_y / 2))
 
 
 # make agents
-for n in range(numOfAgents):
+for n in range(num_agents):
 
-    ArrayAgents[n] = Agent(
+    agent_array[n] = Agent(
         Vector(
-            random.random() * screenSizeX, random.random() * screenSizeY),
+            random.random() * screen_x, random.random() * screen_y),
         Vector(0, 0),
         agentStartingAngle,
         100,
@@ -81,12 +81,12 @@ for n in range(numOfAgents):
 
 # set predators
 totalPredators = 0
-for n in ArrayAgents:
-    if (numOfPredators > 0):
+for n in agent_array:
+    if (num_predators > 0):
         n.predator = True
         n.sight = n.sight*3
         totalPredators += 1
-        if (totalPredators == numOfPredators):
+        if (totalPredators == num_predators):
             break
 
 simRunning = True
@@ -100,54 +100,99 @@ agentStart = True
 def distance(boid1: Agent, boid2: Agent):
     return math.sqrt((boid1.position.x - boid2.position.x) ** 2 + (boid1.position.y - boid2.position.y)**2)
 
+def updateBoid(boid):
+    group_center_x = 0
+    group_center_y = 0
 
-def flyTowardsCenter(boid):
-    centeringFactor = 0.005
+    average_dx = 0
+    average_dy = 0
 
-    centerX = 0
-    centerY = 0
+    avoid_boids_x = 0
+    avoid_boids_y = 0
+
+    avoid_predator_x = 0
+    avoid_predator_y = 0
+
     numNeighbors = 0
 
-    for otherBoid in ArrayAgents:
-        if (distance(boid, otherBoid) < boid.sight):
-            centerX += otherBoid.position.x
-            centerY += otherBoid.position.y
-            numNeighbors += 1
+
+    for otherBoid in agent_array:
+        if boid != otherBoid:
+            dist = distance(boid, otherBoid)
+            if dist < boid.sight:
+                group_center_x += otherBoid.position.x
+                group_center_y += otherBoid.position.y
+
+                average_dx += otherBoid.dx
+                average_dy += otherBoid.dy
+
+                numNeighbors += 1
+                if dist < boid.minDist:
+                    avoid_boids_x += boid.position.x - otherBoid.position.x
+                    avoid_boids_y += boid.position.y - otherBoid.position.y
+
+                if otherBoid.predator:
+                    avoid_predator_x += boid.position.x - otherBoid.position.x
+                    avoid_predator_y += boid.position.y - otherBoid.position.y
 
     if (numNeighbors):
-        centerX = centerX / numNeighbors
-        centerY = centerY / numNeighbors
+        flyTowardsCenter(boid, group_center_x, group_center_y, numNeighbors)
+        matchVelocity(boid, numNeighbors, average_dx, average_dy)
+        avoidBoids(boid, avoid_boids_x, avoid_boids_y)
+        if not boid.predator:
+            avoidPredator(boid, avoid_predator_x, avoid_predator_y)
+        else:
+            chaseAgents(boid, group_center_x, group_center_y, numNeighbors)
 
-        boid.dx += (centerX - boid.x) * centeringFactor
-        boid.dy += (centerY - boid.y) * centeringFactor
+
+def avoidPredator(boid: Agent, avoid_x, avoid_y):
+    #degree to which avoid predator
+    avoidFactor = 0.002
+
+    #avoid predator
+    boid.dx += avoid_x * avoidFactor
+    boid.dy += avoid_y * avoidFactor
 
 
-def matchVelocity(boid):
-    matchingFactor = 0.05  # Adjust by this % of average velocity
+def avoidBoids(boid: Agent, avoid_x, avoid_y):
+    #degree to which avoid other boids in vicinity
+    avoidFactor = 0.003
 
-    avgDX = 0
-    avgDY = 0
-    numNeighbors = 0
+    #avoid other boids
+    boid.dx += avoid_x * avoidFactor
+    boid.dy += avoid_y * avoidFactor
 
-    for otherBoid in ArrayAgents:
-        if distance(boid, otherBoid) < boid.sight:
-            avgDX += otherBoid.dx
-            avgDY += otherBoid.dy
-            numNeighbors += 1
+def flyTowardsCenter(boid, centerX, centerY, numNeighbors):
+    #degree to which boids fly towards center
+    centeringFactor = 0.0005
 
-    if (numNeighbors):
-        avgDX = avgDX / numNeighbors
-        avgDY = avgDY / numNeighbors
+    #find center average of surrounding boids
+    centerX = centerX / numNeighbors
+    centerY = centerY / numNeighbors
 
-        boid.dx += (avgDX - boid.dx) * matchingFactor
-        boid.dy += (avgDY - boid.dy) * matchingFactor
+    #fly towards defined center
+    boid.dx += (centerX - boid.position.x) * centeringFactor
+    boid.dy += (centerY - boid.position.y) * centeringFactor
+
+
+def matchVelocity(boid, numNeighbors, average_dx, average_dy):
+    #degree to which the boids align with one another
+    matchingFactor = 0.05 
+
+    #find average dir
+    average_dx = average_dx / numNeighbors
+    average_dy = average_dy / numNeighbors
+
+    #align boid with defined average dir
+    boid.dx += (average_dx - boid.dx) * matchingFactor
+    boid.dy += (average_dy - boid.dy) * matchingFactor
 
 
 def limitSpeed(boid):
     if not boid.predator:
-        speedLimit = maxSpeed
+        speedLimit = max_speed
     else:
-        speedLimit = predatorMaxSpeed
+        speedLimit = predator_max_speed
 
     speed = math.sqrt(boid.dx * boid.dx + boid.dy * boid.dy)
 
@@ -155,149 +200,74 @@ def limitSpeed(boid):
         boid.dx = (boid.dx / speed) * speedLimit
         boid.dy = (boid.dy / speed) * speedLimit
 
-
-def flyTowardsCenter(boid):
-    centeringFactor = 0.001
-
-    centerX = 0
-    centerY = 0
-    numNeighbors = 0
-
-    for otherBoid in ArrayAgents:
-        if (distance(boid, otherBoid) < boid.sight and not otherBoid.predator):
-            centerX += otherBoid.position.x
-            centerY += otherBoid.position.y
-            numNeighbors += 1
-
-    if (numNeighbors):
-        centerX = centerX / numNeighbors
-        centerY = centerY / numNeighbors
-
-        boid.dx += (centerX - boid.position.x) * centeringFactor
-        boid.dy += (centerY - boid.position.y) * centeringFactor
-
-
-def avoidPredator(boid):
-    avoidFactor = 0.003
-    moveX = 0
-    moveY = 0
-    for k in ArrayAgents:
-        distance = math.sqrt((boid.position.x - k.position.x)
-                             ** 2 + (boid.position.y - k.position.y)**2)
-        if k.predator and k != boid:
-            if distance < boid.sight:
-                moveX += boid.position.x - k.position.x
-                moveY += boid.position.y - k.position.y
-
-    boid.dx += moveX * avoidFactor
-    boid.dy += moveY * avoidFactor
-
-
 def avoidEdge(boid):
     avoidFactor = 0.0027
-    moveX = 0
-    moveY = 0
+    avoid_x = 0
+    avoid_y = 0
     marginSight = boid.sight
 
     if boid.position.x < marginSight:
-        moveX += boid.position.x
-    if boid.position.x > screenSizeX - marginSight:
-        moveX += boid.position.x - screenSizeX
+        avoid_x += boid.position.x
+    if boid.position.x > screen_x - marginSight:
+        avoid_x += boid.position.x - screen_x
     if boid.position.y < marginSight:
-        moveY += boid.position.y
-    if boid.position.y > screenSizeY - marginSight:
-        moveY += boid.position.y - screenSizeY
+        avoid_y += boid.position.y
+    if boid.position.y > screen_y - marginSight:
+        avoid_y += boid.position.y - screen_y
 
-    boid.dx += moveX * avoidFactor
-    boid.dy += moveY * avoidFactor
+    boid.dx += avoid_x * avoidFactor
+    boid.dy += avoid_y * avoidFactor
 
 
-def chaseAgents(boid):
+def chaseAgents(boid, center_x, center_y, num_of_prey):
 
     chaseFactor = 0.004
-
-    centerX = 0
-    centerY = 0
-    numPrey = 0
-
-    for otherBoid in ArrayAgents:
-        if (distance(boid, otherBoid) < boid.sight and not otherBoid.predator):
-            centerX += otherBoid.position.x
-            centerY += otherBoid.position.y
-            numPrey += 1
-
-    if (numPrey):
-        centerX = centerX / numPrey
-        centerY = centerY / numPrey
-
-        boid.dx += (centerX - boid.position.x) * chaseFactor
-        boid.dy += (centerY - boid.position.y) * chaseFactor
+    center_x = center_x / num_of_prey
+    center_y = center_y / num_of_prey
+    boid.dx += (center_x - boid.position.x) * chaseFactor
+    boid.dy += (center_y - boid.position.y) * chaseFactor
 
 
 def moveAgent(n: Agent):
     if agentStart:
-
         direction = Vector(n.dx, n.dy)
 
 
 # checks for out of bounds
 
-        if (n.position + direction).x >= screenSizeX or (
+        if (n.position + direction).x >= screen_x or (
             n.position + direction
         ).x <= 0:
             n.newPos = Vector(
-                screenSizeX - n.position.x, n.position.y)
+                screen_x - n.position.x, n.position.y)
 
-        elif (n.position + direction).y >= screenSizeY or (
+        elif (n.position + direction).y >= screen_y or (
             n.position + direction
         ).y <= 0:
             n.newPos = Vector(
-                n.position.x, screenSizeY - n.position.y)
+                n.position.x, screen_y - n.position.y)
 
         else:
             n.newPos = n.position + direction
 
         n.position = n.newPos
 
-        if n.predator and predatorFollowMouse:
+        if n.predator and follow_mouse:
             mousePos = pygame.mouse.get_pos()
             n.position.x = mousePos[0]
             n.position.y = mousePos[1]
 
 
-def AvoidBoids(n: Agent):
-    avoidFactor = 0.01
-    moveX = 0
-    moveY = 0
-    for k in ArrayAgents:
-        distance = math.sqrt((n.position.x - k.position.x)
-                             ** 2 + (n.position.y - k.position.y)**2)
-        if n != k:
-            if distance < n.minDist:
-                moveX += n.position.x - k.position.x
-                moveY += n.position.y - k.position.y
-
-    n.dx += moveX * avoidFactor
-    n.dy += moveY * avoidFactor
-
-
 def update():
-    for n in ArrayAgents:
+    for n in agent_array:
+        updateBoid(n)
         if not n.predator:
-            flyTowardsCenter(n)
-            AvoidBoids(n)
-            matchVelocity(n)
-            avoidPredator(n)
             limitSpeed(n)
             avoidEdge(n)
             moveAgent(n)
         if n.predator:
-            flyTowardsCenter(n)
-            AvoidBoids(n)
-            matchVelocity(n)
             limitSpeed(n)
             moveAgent(n)
-            chaseAgents(n)
 
     pass
 
@@ -308,7 +278,7 @@ def draw():
 
     screen.blit(backgroundPic, backgroundRect)
 
-    for n in ArrayAgents:
+    for n in agent_array:
         if not n.predator:
             pygame.draw.ellipse(
                 screen,
@@ -330,15 +300,15 @@ while simRunning:
             if event.key == pygame.K_ESCAPE:
                 simRunning = False
             if event.key == pygame.K_1:
-                maxSpeed += 0.5
+                max_speed += 0.5
             if event.key == pygame.K_2:
-                maxSpeed -= 0.5
+                max_speed -= 0.5
             if event.key == pygame.K_3:
-                predatorMaxSpeed += 0.5
+                predator_max_speed += 0.5
             if event.key == pygame.K_4:
-                predatorMaxSpeed -= 0.5
+                predator_max_speed -= 0.5
             if event.key == pygame.K_f:
-                predatorFollowMouse = not predatorFollowMouse
+                follow_mouse = not follow_mouse
             if event.key == pygame.K_5:
                 if backgroundAlpha > 10:
                     backgroundAlpha -= 10
